@@ -237,6 +237,37 @@ The app uses a custom theme system with:
 - `npm run ios` - Run on iOS simulator (macOS only)
 - `npm run web` - Run in web browser
 
+## ⚙️ Configuration Notes
+
+### Expo Go Compatibility
+
+The `app.json` configuration is optimized for **Expo Go** development. The following advanced Android flags have been removed to prevent boolean casting errors:
+
+- ❌ `newArchEnabled` - React Native new architecture (not supported in Expo Go)
+- ❌ `edgeToEdgeEnabled` - Android edge-to-edge display
+- ❌ `predictiveBackGestureEnabled` - Android predictive back gesture
+
+### Production Builds
+
+When creating production builds with EAS Build or standalone apps, you can re-enable these features in `app.json`. 
+
+**📖 For detailed configuration instructions, see [EXPO_CONFIG_GUIDE.md](./EXPO_CONFIG_GUIDE.md)**
+
+Quick example for production:
+```json
+{
+  "expo": {
+    "newArchEnabled": true,
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": true
+    }
+  }
+}
+```
+
+**Note**: These flags are only applicable for custom development builds or production builds, NOT for Expo Go.
+
 ## 🔮 Future Enhancements
 
 - [ ] Real Supabase authentication integration
