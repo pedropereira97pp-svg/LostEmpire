@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Session, AuthError } from '@supabase/supabase-js';
+import { recordFailedAttempt, resetAttempts, getRateLimitStatus, RateLimitStatus } from './authRateLimit';
 
 export interface UserProfile {
   id: string;
@@ -27,13 +28,22 @@ class AuthService {
     });
 
     if (error) {
+      await recordFailedAttempt();
       throw this.formatAuthError(error);
     }
 
     if (!data.session) {
+      await recordFailedAttempt();
       throw new Error('No session returned after sign in');
     }
 
+    if (!data.session.user.email_confirmed_at) {
+      await supabase.auth.signOut();
+      await recordFailedAttempt();
+      throw new Error('Please confirm your email address before signing in. Check your inbox for a confirmation link.');
+    }
+
+    await resetAttempts();
     await this.setSession(data.session);
 
     if (!this.currentUser) {
@@ -43,7 +53,7 @@ class AuthService {
     return this.currentUser;
   }
 
-  async signUp(email: string, password: string, username?: string): Promise<UserProfile> {
+  async signUp(email: string, password: string, username?: string): Promise<{ requiresConfirmation: boolean; user: UserProfile }> {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -57,32 +67,32 @@ class AuthService {
       throw new Error('User creation failed');
     }
 
-    // Create profile row for the new user
+    const derivedUsername = username || email.split('@')[0];
+
     const { error: profileError } = await supabase
       .from('profiles')
       .insert({
         id: data.user.id,
         email: email,
-        username: username || email.split('@')[0],
+        username: derivedUsername,
       });
 
-    if (profileError) {
-      // If profile creation fails, we should clean up the auth user
-      // but for now we'll just throw the error
+    if (profileError && profileError.code !== '23505') {
       throw new Error(`Failed to create profile: ${profileError.message}`);
     }
 
-    if (data.session) {
+    const userProfile: UserProfile = {
+      id: data.user.id,
+      email,
+      username: derivedUsername,
+    };
+
+    if (data.session && data.session.user.email_confirmed_at) {
       await this.setSession(data.session);
-      return this.currentUser!;
+      return { requiresConfirmation: false, user: this.currentUser || userProfile };
     }
 
-    // Email confirmation may be required
-    return {
-      id: data.user.id,
-      email: email,
-      username: username || email.split('@')[0],
-    };
+    return { requiresConfirmation: true, user: userProfile };
   }
 
   async signOut(): Promise<void> {
@@ -92,6 +102,25 @@ class AuthService {
     }
     this.currentSession = null;
     this.currentUser = null;
+  }
+
+  async resetPasswordForEmail(email: string, redirectTo?: string): Promise<void> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (error) {
+      throw this.formatAuthError(error);
+    }
+  }
+
+  async signInWithGoogle(redirectTo: string): Promise<void> {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    });
+    if (error) {
+      throw this.formatAuthError(error);
+    }
   }
 
   async getCurrentSession(): Promise<Session | null> {
@@ -129,7 +158,6 @@ class AuthService {
       .single();
 
     if (error) {
-      // If profile doesn't exist, create one
       if (error.code === 'PGRST116') {
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
@@ -182,6 +210,10 @@ class AuthService {
     return data;
   }
 
+  getRateLimitStatus(): Promise<RateLimitStatus> {
+    return getRateLimitStatus();
+  }
+
   private async setSession(session: Session | null): Promise<void> {
     this.currentSession = session;
     if (session) {
@@ -192,15 +224,14 @@ class AuthService {
   }
 
   private formatAuthError(error: AuthError): Error {
-    // Map Supabase auth error messages to user-friendly messages
     const errorMessages: Record<string, string> = {
-      'invalid_credentials': 'Invalid email or password',
-      'user_not_found': 'User not found',
-      'email_not_confirmed': 'Please confirm your email address',
-      'email_taken': 'An account with this email already exists',
-      'weak_password': 'Password is too weak. Use at least 6 characters',
-      'rate_limit': 'Too many attempts. Please try again later',
-      'network_error': 'Network error. Please check your connection',
+      invalid_credentials: 'Invalid email or password',
+      user_not_found: 'User not found',
+      email_not_confirmed: 'Please confirm your email address',
+      email_taken: 'An account with this email already exists',
+      weak_password: 'Password is too weak',
+      rate_limit: 'Too many attempts. Please try again later',
+      network_error: 'Network error. Please check your connection',
     };
 
     const errorCode = error.code || '';
@@ -208,7 +239,6 @@ class AuthService {
     return new Error(message);
   }
 
-  // Auth state listener
   onAuthStateChange(callback: (session: Session | null) => void) {
     return supabase.auth.onAuthStateChange((_event, session) => {
       this.currentSession = session;
