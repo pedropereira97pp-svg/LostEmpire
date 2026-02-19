@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 import { Session, AuthError } from '@supabase/supabase-js';
 import { recordFailedAttempt, resetAttempts, getRateLimitStatus, RateLimitStatus } from './authRateLimit';
 
@@ -22,6 +22,7 @@ class AuthService {
   private currentUser: UserProfile | null = null;
 
   async signIn(email: string, password: string): Promise<UserProfile> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -54,6 +55,7 @@ class AuthService {
   }
 
   async signUp(email: string, password: string, username?: string): Promise<{ requiresConfirmation: boolean; user: UserProfile }> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -96,11 +98,11 @@ class AuthService {
   }
 
   async requestEmailOtp(email: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await getSupabaseClient().auth.signInWithOtp({
       email: email.trim(),
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: undefined, // We'll handle verification manually
+        emailRedirectTo: undefined,
       },
     });
 
@@ -110,6 +112,7 @@ class AuthService {
   }
 
   async verifyEmailOtp(email: string, token: string): Promise<{ session: Session; user: UserProfile }> {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.verifyOtp({
       email: email.trim(),
       token: token.trim(),
@@ -126,7 +129,6 @@ class AuthService {
 
     const derivedUsername = email.split('@')[0];
 
-    // Create profile if it doesn't exist
     const { error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -135,7 +137,6 @@ class AuthService {
         username: derivedUsername,
       });
 
-    // Ignore "already exists" errors
     if (profileError && profileError.code !== '23505') {
       console.warn('Failed to create profile:', profileError.message);
     }
@@ -152,7 +153,7 @@ class AuthService {
   }
 
   async setPassword(password: string): Promise<UserProfile> {
-    const { data, error } = await supabase.auth.updateUser({
+    const { data, error } = await getSupabaseClient().auth.updateUser({
       password: password,
     });
 
@@ -164,7 +165,6 @@ class AuthService {
       throw new Error('Password update failed');
     }
 
-    // Update the current user in our state
     if (this.currentUser) {
       this.currentUser = { ...this.currentUser };
     }
@@ -173,7 +173,7 @@ class AuthService {
   }
 
   async signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await getSupabaseClient().auth.signOut();
     if (error) {
       throw this.formatAuthError(error);
     }
@@ -182,7 +182,7 @@ class AuthService {
   }
 
   async resetPasswordForEmail(email: string, redirectTo?: string): Promise<void> {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, {
       redirectTo,
     });
     if (error) {
@@ -191,7 +191,7 @@ class AuthService {
   }
 
   async signInWithGoogle(redirectTo: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await getSupabaseClient().auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
@@ -205,7 +205,7 @@ class AuthService {
       return this.currentSession;
     }
 
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session }, error } = await getSupabaseClient().auth.getSession();
 
     if (error) {
       throw this.formatAuthError(error);
@@ -228,6 +228,7 @@ class AuthService {
       return null;
     }
 
+    const supabase = getSupabaseClient();
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
@@ -272,7 +273,7 @@ class AuthService {
       throw new Error('Not authenticated');
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from('profiles')
       .update(updates)
       .eq('id', session.user.id)
@@ -317,7 +318,7 @@ class AuthService {
   }
 
   onAuthStateChange(callback: (session: Session | null) => void) {
-    return supabase.auth.onAuthStateChange((_event, session) => {
+    return getSupabaseClient().auth.onAuthStateChange((_event, session) => {
       this.currentSession = session;
       if (session) {
         this.getCurrentUser();
