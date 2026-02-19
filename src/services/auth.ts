@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 import { Session, AuthError } from '@supabase/supabase-js';
 import { recordFailedAttempt, resetAttempts, getRateLimitStatus, RateLimitStatus } from './authRateLimit';
 
@@ -22,7 +22,7 @@ class AuthService {
   private currentUser: UserProfile | null = null;
 
   async signIn(email: string, password: string): Promise<UserProfile> {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
       email,
       password,
     });
@@ -38,7 +38,7 @@ class AuthService {
     }
 
     if (!data.session.user.email_confirmed_at) {
-      await supabase.auth.signOut();
+      await getSupabaseClient().auth.signOut();
       await recordFailedAttempt();
       throw new Error('Please confirm your email address before signing in. Check your inbox for a confirmation link.');
     }
@@ -54,7 +54,7 @@ class AuthService {
   }
 
   async signUp(email: string, password: string, username?: string): Promise<{ requiresConfirmation: boolean; user: UserProfile }> {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await getSupabaseClient().auth.signUp({
       email,
       password,
     });
@@ -69,7 +69,7 @@ class AuthService {
 
     const derivedUsername = username || email.split('@')[0];
 
-    const { error: profileError } = await supabase
+    const { error: profileError } = await getSupabaseClient()
       .from('profiles')
       .insert({
         id: data.user.id,
@@ -96,7 +96,7 @@ class AuthService {
   }
 
   async requestEmailOtp(email: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await getSupabaseClient().auth.signInWithOtp({
       email: email.trim(),
       options: {
         shouldCreateUser: true,
@@ -110,7 +110,7 @@ class AuthService {
   }
 
   async verifyEmailOtp(email: string, token: string): Promise<{ session: Session; user: UserProfile }> {
-    const { data, error } = await supabase.auth.verifyOtp({
+    const { data, error } = await getSupabaseClient().auth.verifyOtp({
       email: email.trim(),
       token: token.trim(),
       type: 'email',
@@ -127,7 +127,7 @@ class AuthService {
     const derivedUsername = email.split('@')[0];
 
     // Create profile if it doesn't exist
-    const { error: profileError } = await supabase
+    const { error: profileError } = await getSupabaseClient()
       .from('profiles')
       .insert({
         id: data.user.id,
@@ -152,7 +152,7 @@ class AuthService {
   }
 
   async setPassword(password: string): Promise<UserProfile> {
-    const { data, error } = await supabase.auth.updateUser({
+    const { data, error } = await getSupabaseClient().auth.updateUser({
       password: password,
     });
 
@@ -173,7 +173,7 @@ class AuthService {
   }
 
   async signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await getSupabaseClient().auth.signOut();
     if (error) {
       throw this.formatAuthError(error);
     }
@@ -182,7 +182,7 @@ class AuthService {
   }
 
   async resetPasswordForEmail(email: string, redirectTo?: string): Promise<void> {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, {
       redirectTo,
     });
     if (error) {
@@ -191,7 +191,7 @@ class AuthService {
   }
 
   async signInWithGoogle(redirectTo: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await getSupabaseClient().auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
@@ -205,7 +205,7 @@ class AuthService {
       return this.currentSession;
     }
 
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session }, error } = await getSupabaseClient().auth.getSession();
 
     if (error) {
       throw this.formatAuthError(error);
@@ -228,7 +228,7 @@ class AuthService {
       return null;
     }
 
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await getSupabaseClient()
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
@@ -236,7 +236,7 @@ class AuthService {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        const { data: newProfile, error: createError } = await supabase
+        const { data: newProfile, error: createError } = await getSupabaseClient()
           .from('profiles')
           .insert({
             id: session.user.id,
@@ -272,7 +272,7 @@ class AuthService {
       throw new Error('Not authenticated');
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from('profiles')
       .update(updates)
       .eq('id', session.user.id)
@@ -317,7 +317,7 @@ class AuthService {
   }
 
   onAuthStateChange(callback: (session: Session | null) => void) {
-    return supabase.auth.onAuthStateChange((_event, session) => {
+    return getSupabaseClient().auth.onAuthStateChange((_event, session) => {
       this.currentSession = session;
       if (session) {
         this.getCurrentUser();
