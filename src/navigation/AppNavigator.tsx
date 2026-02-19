@@ -8,11 +8,13 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import LoginScreen from '../screens/LoginScreen';
 import PlayerAccountScreen from '../screens/PlayerAccountScreen';
 import InGameOverviewScreen from '../screens/InGameOverviewScreen';
+import SignupScreen from '../screens/SignupScreen';
 import { authService } from '../services/auth';
 import { colors } from '../theme';
 
 export type RootStackParamList = {
   Login: undefined;
+  Signup: undefined;
   PlayerAccount: undefined;
   InGameOverview: undefined;
 };
@@ -81,6 +83,14 @@ export default function AppNavigator() {
             name="Login"
             component={LoginScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Signup"
+            component={SignupScreen}
+            options={{ 
+              title: 'Create Account',
+              headerBackVisible: true,
+            }}
           />
           <Stack.Screen
             name="PlayerAccount"

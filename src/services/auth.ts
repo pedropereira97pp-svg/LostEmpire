@@ -95,6 +95,83 @@ class AuthService {
     return { requiresConfirmation: true, user: userProfile };
   }
 
+  async requestEmailOtp(email: string): Promise<void> {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: undefined, // We'll handle verification manually
+      },
+    });
+
+    if (error) {
+      throw this.formatAuthError(error);
+    }
+  }
+
+  async verifyEmailOtp(email: string, token: string): Promise<{ session: Session; user: UserProfile }> {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: 'email',
+    });
+
+    if (error) {
+      throw this.formatAuthError(error);
+    }
+
+    if (!data.session || !data.user) {
+      throw new Error('OTP verification failed - no session returned');
+    }
+
+    const derivedUsername = email.split('@')[0];
+
+    // Create profile if it doesn't exist
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        email: email,
+        username: derivedUsername,
+      });
+
+    // Ignore "already exists" errors
+    if (profileError && profileError.code !== '23505') {
+      console.warn('Failed to create profile:', profileError.message);
+    }
+
+    await this.setSession(data.session);
+
+    const userProfile: UserProfile = {
+      id: data.user.id,
+      email,
+      username: derivedUsername,
+    };
+
+    return { session: data.session, user: this.currentUser || userProfile };
+  }
+
+  async setPassword(password: string): Promise<UserProfile> {
+    const { data, error } = await supabase.auth.updateUser({
+      password: password,
+    });
+
+    if (error) {
+      throw this.formatAuthError(error);
+    }
+
+    if (!data.user) {
+      throw new Error('Password update failed');
+    }
+
+    // Update the current user in our state
+    if (this.currentUser) {
+      this.currentUser = { ...this.currentUser };
+    }
+
+    return this.currentUser!;
+  }
+
   async signOut(): Promise<void> {
     const { error } = await supabase.auth.signOut();
     if (error) {
