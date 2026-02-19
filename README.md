@@ -1,6 +1,6 @@
 # Lost Empire
 
-A React Native mobile game built with Expo, featuring authentication and in-game gameplay.
+A React Native mobile game built with Expo, featuring real Supabase authentication and in-game gameplay.
 
 ## 🚀 Getting Started
 
@@ -11,6 +11,7 @@ A React Native mobile game built with Expo, featuring authentication and in-game
 - Expo CLI (`npm install -g expo-cli`)
 - iOS Simulator (macOS) or Android Emulator
 - Expo Go app on your mobile device (for physical device testing)
+- A Supabase account (for authentication)
 
 ### Installation
 
@@ -25,12 +26,19 @@ cd LostEmpire
 npm install
 ```
 
-3. Start the development server:
+3. Set up Supabase:
+   - Copy `.env.example` to `.env`:
+     ```bash
+     cp .env.example .env
+     ```
+   - Fill in your Supabase credentials (see [Supabase Setup](#supabase-setup) below)
+
+4. Start the development server:
 ```bash
 npm start
 ```
 
-4. Run on your preferred platform:
+5. Run on your preferred platform:
 ```bash
 # iOS (macOS only)
 npm run ios
@@ -55,8 +63,8 @@ src/
 │   ├── PlayerAccountScreen.tsx  # Player profile setup
 │   └── InGameOverviewScreen.tsx  # Main game dashboard
 ├── services/
-│   ├── auth.ts             # Authentication service (stub)
-│   └── supabaseClient.ts   # Supabase client placeholder
+│   ├── auth.ts             # Supabase authentication service
+│   └── supabaseClient.ts   # Supabase client configuration
 └── theme/
     ├── colors.ts           # Color palette
     ├── spacing.ts          # Spacing constants
@@ -66,101 +74,59 @@ src/
 
 ## 🔐 Authentication
 
-The app currently uses a **stubbed authentication service** for demonstration purposes. This means:
+The app uses **Supabase Authentication** for secure user management:
 
-- ✅ Any email/password combination works for sign-in
-- ✅ Sign-up creates a local user session
-- ✅ User data is stored locally using AsyncStorage
-- ❌ No real authentication with a backend
-- ❌ Data is not persisted across app reinstalls
+- ✅ Real email/password authentication
+- ✅ Automatic session persistence
+- ✅ Profile creation on signup
+- ✅ Secure password requirements (min 6 characters)
+- ✅ Proper error handling and user feedback
 
-### Demo Mode
+### Supabase Setup
 
-To test the app without backend configuration:
-- Enter any email and password
-- Click "Sign In" or "Create Account"
-- You'll be logged in and can explore all features
+To enable authentication, you need to configure Supabase:
 
-## 🔧 Supabase Configuration
-
-To enable real authentication and data persistence, you need to configure Supabase:
-
-### Step 1: Create a Supabase Project
+#### Step 1: Create a Supabase Project
 
 1. Go to [supabase.com](https://supabase.com)
 2. Sign up and create a new project
 3. Wait for the project to be ready (usually takes 2-3 minutes)
 
-### Step 2: Get Your Credentials
+#### Step 2: Get Your Credentials
 
 1. Go to Project Settings → API
 2. Copy your:
    - Project URL
    - anon/public API key
 
-### Step 3: Install Supabase Client
+#### Step 3: Configure Environment Variables
 
-```bash
-npm install @supabase/supabase-js
+Edit the `.env` file in your project root:
+
+```
+EXPO_PUBLIC_SUPABASE_URL=your-project-url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### Step 4: Update Configuration
-
-Edit `src/services/supabaseClient.ts`:
-
-```typescript
-import { createClient } from '@supabase/supabase-js';
-
-export const supabaseConfig = {
-  url: 'YOUR_SUPABASE_PROJECT_URL',  // Replace with actual URL
-  anonKey: 'YOUR_SUPABASE_ANON_KEY',  // Replace with actual key
-} as const;
-
-export const supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
-```
-
-### Step 5: Set Up Database Tables
+#### Step 4: Set Up Database Tables
 
 Run these SQL queries in your Supabase SQL Editor:
 
 ```sql
--- Users table (extends Supabase auth.users)
+-- Profiles table (extends Supabase auth.users)
 CREATE TABLE public.profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  email TEXT NOT NULL,
   username TEXT UNIQUE,
   display_name TEXT,
   bio TEXT,
+  avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Player stats
-CREATE TABLE public.player_stats (
-  id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  level INTEGER DEFAULT 1,
-  experience INTEGER DEFAULT 0,
-  gold INTEGER DEFAULT 100,
-  gems INTEGER DEFAULT 10,
-  wins INTEGER DEFAULT 0,
-  losses INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Inventory
-CREATE TABLE public.inventory (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  item_name TEXT NOT NULL,
-  quantity INTEGER DEFAULT 1,
-  rarity TEXT DEFAULT 'common',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.player_stats ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
 
 -- Create policies
 CREATE POLICY "Users can view own profile"
@@ -171,45 +137,25 @@ CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
-CREATE POLICY "Users can view own stats"
-  ON public.player_stats FOR SELECT
-  USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own stats"
-  ON public.player_stats FOR UPDATE
-  USING (auth.uid() = id);
-
-CREATE POLICY "Users can view own inventory"
-  ON public.inventory FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own inventory"
-  ON public.inventory FOR UPDATE
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
 ```
 
-### Step 6: Update Auth Service
-
-Replace the stubbed auth service with real Supabase authentication in `src/services/auth.ts`. The service should:
-
-- Use `supabase.auth.signInWithPassword()` for sign-in
-- Use `supabase.auth.signUp()` for sign-up
-- Use `supabase.auth.signOut()` for sign-out
-- Fetch user profiles from the `profiles` table
-- Manage real sessions with Supabase
+For complete database setup including player stats and inventory, see [SUPABASE_SETUP.md](./SUPABASE_SETUP.md).
 
 ## 🎮 Features
 
 ### Login Screen
 - Email and password authentication
 - Sign-in and sign-up functionality
-- Form validation
-- Demo mode support
+- Form validation with clear error messages
+- Password requirements enforcement
 
 ### Player Account Screen
 - Profile customization
-- Username display
-- Display name and bio fields
+- Username, display name, and bio
+- Real-time profile updates
 - Sign-out functionality
 
 ### In-Game Overview Screen
@@ -238,6 +184,17 @@ The app uses a custom theme system with:
 - `npm run web` - Run in web browser
 
 ## ⚙️ Configuration Notes
+
+### Environment Variables
+
+The following environment variables are required:
+
+| Variable | Description |
+|----------|-------------|
+| `EXPO_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public API key |
+
+**⚠️ Never commit your `.env` file to version control!**
 
 ### Expo Go Compatibility
 
@@ -268,9 +225,17 @@ Quick example for production:
 
 **Note**: These flags are only applicable for custom development builds or production builds, NOT for Expo Go.
 
+## 🔒 Security Notes
+
+- Never commit your `.env` file to version control
+- Use environment variables for all sensitive data
+- Enable Row Level Security on all tables
+- Use the anon key for client-side operations
+- Never expose your service_role key in client code
+
 ## 🔮 Future Enhancements
 
-- [ ] Real Supabase authentication integration
+- [ ] Real-time features with Supabase Realtime
 - [ ] Player profile persistence
 - [ ] Inventory system with real database
 - [ ] Battle system implementation
@@ -292,3 +257,10 @@ This project is licensed under the MIT License.
 ## 📞 Support
 
 For support, open an issue in the GitHub repository or contact the development team.
+
+## 📚 Additional Documentation
+
+- [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) - Complete Supabase configuration guide
+- [EXPO_CONFIG_GUIDE.md](./EXPO_CONFIG_GUIDE.md) - Expo configuration reference
+- [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - Detailed project structure
+- [QUICKSTART.md](./QUICKSTART.md) - Quick start guide

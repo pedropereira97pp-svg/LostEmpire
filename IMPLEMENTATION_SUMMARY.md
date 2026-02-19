@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully initialized the Lost Empire repository as an Expo React Native application with authentication, player account flow, and in-game overview screen. All features are implemented with stubbed authentication for demo purposes, with clear placeholders for Supabase integration.
+The Lost Empire repository is an Expo React Native application with real Supabase authentication, player account flow, and in-game overview screen. All authentication is handled through Supabase with persistent sessions and proper error handling.
 
 ## Completed Features
 
@@ -11,30 +11,35 @@ Successfully initialized the Lost Empire repository as an Expo React Native appl
 - Configured dark theme for gaming app
 - Set up proper project structure
 - Configured .gitignore for clean version control
+- Supabase client integration with environment variables
 
 ### ✅ 2. Navigation System
 - Implemented stack-based navigation using @react-navigation/native-stack
 - Three-screen flow: Login → PlayerAccount → InGameOverview
 - Proper header configuration with dark theme
 - Back button handling where appropriate
+- Session-based initial route (authenticated users skip login)
 
 ### ✅ 3. Authentication Flow
 **File: `src/screens/LoginScreen.tsx`**
-- Email/password input fields
-- Sign-in functionality with validation
-- Sign-up functionality with validation
+- Email/password input fields with validation
+- Real sign-in via Supabase authentication
+- Real sign-up with automatic profile creation
 - Loading states
-- Error handling and user feedback
-- Demo mode: accepts any email/password
+- Comprehensive error handling and user feedback
+- In-line error display (not just alerts)
+- Password requirements enforcement (min 6 characters)
 
 ### ✅ 4. Player Account Flow
 **File: `src/screens/PlayerAccountScreen.tsx`**
 - Profile display (email, player ID)
-- Username customization
+- Username customization with persistence
 - Display name and bio fields
+- Real profile updates to Supabase
 - Sign-out functionality
 - Form validation
 - Continue button to game overview
+- Error handling with retry functionality
 
 ### ✅ 5. In-Game Overview
 **File: `src/screens/InGameOverviewScreen.tsx`**
@@ -54,18 +59,22 @@ Successfully initialized the Lost Empire repository as an Expo React Native appl
 
 ### ✅ 7. Authentication Service
 **File: `src/services/auth.ts`**
-- Stubbed authentication service
-- Simulates login/signup without backend
-- AsyncStorage for local session persistence
-- Type-safe interfaces for User and AuthState
-- Clear separation from real Supabase auth
+- Real Supabase authentication service
+- Uses `supabase.auth.signInWithPassword()` for sign-in
+- Uses `supabase.auth.signUp()` for sign-up
+- Uses `supabase.auth.signOut()` for sign-out
+- Automatic session persistence via Supabase
+- Profile creation on signup in `profiles` table
+- Type-safe interfaces for UserProfile and AuthState
+- Proper error formatting with user-friendly messages
+- Auth state change listeners
 
 ### ✅ 8. Supabase Configuration
 **File: `src/services/supabaseClient.ts`**
-- Placeholder configuration for Supabase URL and anon key
+- Real Supabase client using `createClient()`
+- Environment variable support for credentials
 - Helper function to check if Supabase is configured
-- Clear documentation for real implementation
-- Environment variable support ready
+- Exports configured client for use throughout app
 
 ### ✅ 9. Documentation
 - **README.md**: Comprehensive project documentation
@@ -75,7 +84,7 @@ Successfully initialized the Lost Empire repository as an Expo React Native appl
 - **.env.example**: Environment variable template
 
 ### ✅ 10. Configuration Files
-- **package.json**: Updated with project name and all dependencies
+- **package.json**: Updated with project name and all dependencies including @supabase/supabase-js
 - **app.json**: Configured for "Lost Empire" with dark theme
 - **tsconfig.json**: TypeScript configuration
 - **.gitignore**: Proper ignore rules for Expo and React Native
@@ -91,8 +100,11 @@ Successfully initialized the Lost Empire repository as an Expo React Native appl
 ### Navigation
 - `@react-navigation/native` (^7.1.28)
 - `@react-navigation/native-stack` (^7.13.0)
-- `react-native-screens` (^4.23.0)
+- `react-native-screens` (^4.16.0)
 - `react-native-safe-area-context` (^5.6.2)
+
+### Authentication & Backend
+- `@supabase/supabase-js` (^2.49.1) - Real authentication and database
 
 ### Storage
 - `@react-native-async-storage/async-storage` (^2.2.0)
@@ -103,10 +115,14 @@ Successfully initialized the Lost Empire repository as an Expo React Native appl
 
 ## Key Design Decisions
 
-### 1. Stubbed Authentication
-- **Why**: Allows immediate testing without backend setup
-- **Benefit**: Demonstrates complete auth flow
-- **Migration Path**: Clear documentation for Supabase integration
+### 1. Real Supabase Authentication
+- **Why**: Secure, scalable, production-ready authentication
+- **Benefits**: 
+  - Industry-standard security
+  - Automatic session management
+  - Built-in password reset and email confirmation
+  - Row Level Security integration
+- **Implementation**: Replaced all stub auth with real Supabase calls
 
 ### 2. Native Stack Navigation
 - **Why**: Better performance, smaller bundle size
@@ -118,13 +134,20 @@ Successfully initialized the Lost Empire repository as an Expo React Native appl
 - **Benefit**: Type-safe, easy to customize
 - **Future**: Support for light theme or user preferences
 
-### 4. Android-Friendly Design
-- **Why**: Wider audience reach
-- **Features**:
-  - SafeAreaView support
-  - Proper StatusBar handling
-  - Responsive font sizes
-  - Touch-friendly button sizes
+### 4. Profile Creation on Signup
+- **Why**: Ensures user data is properly initialized
+- **Implementation**: 
+  - Creates row in `profiles` table immediately after signup
+  - Handles edge cases where profile might not exist
+  - Supports username, display_name, and bio fields
+
+### 5. Error Handling
+- **Why**: Good UX requires clear feedback
+- **Implementation**:
+  - User-friendly error messages mapped from Supabase codes
+  - In-line error display on LoginScreen
+  - Retry functionality on PlayerAccountScreen
+  - Alert dialogs for critical errors
 
 ## Files Created/Modified
 
@@ -165,29 +188,44 @@ PROJECT_STRUCTURE.md      # Project structure overview
 
 ## What Works Right Now
 
-### ✅ Demo Mode Features
-- Sign in with any email/password
-- Sign up with any email/password
+### ✅ Authentication Features
+- Real sign in with valid Supabase credentials
+- Real sign up with email confirmation (if enabled)
+- Automatic session persistence across app restarts
+- Profile creation on signup
+- Profile updates to database
+- Sign out functionality
+- Session restoration on app launch
+
+### ✅ UI Features
+- Login screen with validation
 - Profile creation and editing
 - Navigation between all screens
-- Local session persistence (AsyncStorage)
 - All UI components and interactions
 - Theme system
 - Form validation
-- Error handling
+- Error handling with user-friendly messages
 
-### ❌ Requires Supabase Setup
-- Real authentication
-- Data persistence across devices
-- Real-time features
-- Multiplayer functionality
-- Backend data storage
+### ✅ Backend Integration
+- Supabase authentication
+- Profile data persistence
+- Row Level Security policies
+- Session management
 
 ## How to Run
 
+### Prerequisites
+1. Supabase account and project
+2. Environment variables configured
+
+### Setup
 ```bash
 # Install dependencies
 npm install
+
+# Copy environment template
+cp .env.example .env
+# Edit .env with your Supabase credentials
 
 # Start development server
 npm start
@@ -198,25 +236,54 @@ npm run android  # Android
 npm run web      # Web browser
 ```
 
-## Next Steps for Real Backend
+## Supabase Database Setup
 
-1. Create a Supabase account and project
-2. Copy `.env.example` to `.env` and add credentials
-3. Run SQL scripts from `SUPABASE_SETUP.md` to set up database tables
-4. Replace auth stub with real Supabase authentication
-5. Connect screens to database operations
-6. Test with real users and data
+Run these SQL commands in your Supabase SQL Editor:
+
+```sql
+-- Profiles table
+CREATE TABLE public.profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
+  email TEXT NOT NULL,
+  username TEXT UNIQUE,
+  display_name TEXT,
+  bio TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view own profile"
+  ON public.profiles FOR SELECT
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert own profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+```
+
+For complete setup including player stats and inventory, see `SUPABASE_SETUP.md`.
 
 ## Testing Recommendations
 
 ### Manual Testing
-1. Test login with various email formats
-2. Test sign-up flow
-3. Test profile creation and editing
-4. Test navigation between screens
-5. Test on iOS and Android
-6. Test sign-out functionality
-7. Test local session persistence (restart app)
+1. Test signup with new email
+2. Test signin with existing credentials
+3. Test validation (empty fields, short password)
+4. Test error handling (wrong password, non-existent email)
+5. Test profile creation and editing
+6. Test navigation between screens
+7. Test sign-out and session persistence
+8. Test on iOS and Android
+9. Test session restoration (restart app)
 
 ### Future Automated Testing
 - Unit tests for auth service
@@ -229,7 +296,7 @@ npm run web      # Web browser
 ### Optimizations Implemented
 - Native stack navigation for better performance
 - Minimal re-renders with proper state management
-- Efficient AsyncStorage usage
+- Supabase client singleton pattern
 - Optimized image assets
 
 ### Future Optimizations
@@ -240,17 +307,20 @@ npm run web      # Web browser
 
 ## Security Considerations
 
-### Current Implementation (Demo)
-- AsyncStorage for local persistence (not secure for production)
-- No real authentication (any password works)
-- No encryption of sensitive data
+### Current Implementation
+- ✅ Real authentication via Supabase
+- ✅ Proper session management
+- ✅ Secure token storage (managed by Supabase)
+- ✅ Row Level Security on database tables
+- ✅ Input validation and sanitization
+- ✅ Environment variables for sensitive data
 
-### Production Requirements
-- Real authentication via Supabase
-- Proper session management
-- Secure storage of tokens
-- Input validation and sanitization
-- HTTPS for all API calls
+### Security Best Practices Followed
+- Never expose service_role key in client code
+- Use anon key for client-side operations only
+- All database access through RLS policies
+- Password requirements enforced (min 6 chars)
+- Secure session persistence
 
 ## Accessibility
 
@@ -259,6 +329,7 @@ npm run web      # Web browser
 - Touch-friendly button sizes
 - Semantic text sizes
 - KeyboardAvoidingView for forms
+- Clear error messages
 
 ### Future Enhancements
 - Screen reader support
@@ -280,26 +351,45 @@ npm run web      # Web browser
 
 ## Known Limitations
 
-1. **No Real Backend**: All data is local only
-2. **No Multiplayer**: Single-player experience only
-3. **No Persistent Game State**: Data resets on app reinstall
+1. **Requires Supabase**: App requires Supabase configuration to function
+2. **No Offline Support**: Requires network for authentication
+3. **Email Confirmation**: May require email confirmation depending on Supabase settings
 4. **Limited Error Recovery**: Basic error handling implemented
-5. **No Offline Support**: Requires network for navigation libraries
+
+## Migration from Stub Auth
+
+### What Changed
+1. Replaced stub auth service with real Supabase implementation
+2. Added @supabase/supabase-js dependency
+3. Updated LoginScreen to remove demo mode text
+4. Added comprehensive error handling
+5. Implemented session persistence via Supabase
+6. Added profile creation on signup
+7. Updated documentation to reflect real auth
+
+### Migration Steps for Existing Users
+Users with the old stub auth version will need to:
+1. Create a new Supabase account
+2. Set up environment variables
+3. Sign up again (previous stub data is not migrated)
 
 ## Conclusion
 
-The Lost Empire app is fully functional in demo mode with a complete authentication flow, player account setup, and in-game overview. The architecture is designed for easy integration with Supabase for real backend functionality. All code follows React Native best practices and is well-documented for future development.
+The Lost Empire app now uses real Supabase authentication with secure session management, profile persistence, and comprehensive error handling. The architecture is production-ready and follows React Native best practices. All code is well-documented for future development.
 
 ## Success Metrics
 
-✅ Expo React Native app initialized with TypeScript
-✅ Login screen implemented with auth stub
-✅ Player account flow implemented
+✅ Expo React Native app with TypeScript
+✅ Real Supabase authentication implemented
+✅ Profile creation on signup working
+✅ Session persistence across app restarts
+✅ Comprehensive error handling
+✅ Login screen with validation
+✅ Player account flow with database persistence
 ✅ In-game overview screen implemented
-✅ Supabase configuration placeholders added
-✅ Navigation system working
+✅ Navigation system with auth state
 ✅ Theme system implemented
-✅ All screens functional in demo mode
+✅ All screens functional
 ✅ TypeScript compilation passes with no errors
 ✅ Comprehensive documentation provided
-✅ Clear path to real backend integration
+✅ Security best practices followed

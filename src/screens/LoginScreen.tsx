@@ -25,38 +25,61 @@ export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const validateInputs = (): boolean => {
+    if (!email.trim()) {
+      setAuthError('Please enter your email');
+      return false;
+    }
+    if (!password.trim()) {
+      setAuthError('Please enter your password');
+      return false;
+    }
+    if (password.length < 6) {
+      setAuthError('Password must be at least 6 characters');
+      return false;
+    }
+    return true;
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+    setAuthError(null);
+
+    if (!validateInputs()) {
       return;
     }
 
     setIsLoading(true);
     try {
-      await authService.signIn(email, password);
+      await authService.signIn(email.trim(), password);
       navigation.replace('PlayerAccount');
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'An error occurred');
+      const errorMessage = error.message || 'Login failed. Please try again.';
+      setAuthError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSignUp = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+    setAuthError(null);
+
+    if (!validateInputs()) {
       return;
     }
 
     setIsLoading(true);
     try {
-      await authService.signUp(email, password);
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => navigation.replace('PlayerAccount') },
-      ]);
+      await authService.signUp(email.trim(), password);
+      Alert.alert(
+        'Account Created',
+        'Your account has been created successfully!',
+        [{ text: 'OK', onPress: () => navigation.replace('PlayerAccount') }]
+      );
     } catch (error: any) {
-      Alert.alert('Sign Up Failed', error.message || 'An error occurred');
+      const errorMessage = error.message || 'Sign up failed. Please try again.';
+      setAuthError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +100,12 @@ export default function LoginScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.form}>
+          {authError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{authError}</Text>
+            </View>
+          )}
+
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -84,10 +113,14 @@ export default function LoginScreen({ navigation }: Props) {
               placeholder="Enter your email"
               placeholderTextColor={colors.textSecondary}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                setAuthError(null);
+              }}
               autoCapitalize="none"
               keyboardType="email-address"
               editable={!isLoading}
+              autoComplete="email"
             />
           </View>
 
@@ -98,9 +131,13 @@ export default function LoginScreen({ navigation }: Props) {
               placeholder="Enter your password"
               placeholderTextColor={colors.textSecondary}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                setAuthError(null);
+              }}
               secureTextEntry
               editable={!isLoading}
+              autoComplete="password"
             />
           </View>
 
@@ -125,7 +162,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Demo Mode: Any email/password will work
+            Secure authentication powered by Supabase
           </Text>
         </View>
       </ScrollView>
@@ -159,6 +196,19 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '20',
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: typography.sm,
+    textAlign: 'center',
   },
   inputContainer: {
     marginBottom: spacing.lg,

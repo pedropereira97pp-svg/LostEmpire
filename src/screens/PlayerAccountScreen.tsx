@@ -7,9 +7,10 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
-import { authService, User } from '../services/auth';
+import { authService, UserProfile } from '../services/auth';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
@@ -21,9 +22,13 @@ type RootStackParamList = {
 type Props = NativeStackScreenProps<RootStackParamList, 'PlayerAccount'>;
 
 export default function PlayerAccountScreen({ navigation }: Props) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadUserData();
@@ -31,6 +36,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
 
   const loadUserData = async () => {
     try {
+      setError(null);
       const currentUser = await authService.getCurrentUser();
       if (!currentUser) {
         navigation.replace('Login');
@@ -38,25 +44,37 @@ export default function PlayerAccountScreen({ navigation }: Props) {
       }
       setUser(currentUser);
       setUsername(currentUser.username || '');
-    } catch (error) {
-      console.error('Error loading user data:', error);
+      setDisplayName(currentUser.display_name || '');
+      setBio(currentUser.bio || '');
+    } catch (err: any) {
+      setError(err.message || 'Failed to load user data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!username.trim()) {
       Alert.alert('Error', 'Please enter a username');
       return;
     }
 
-    // Update user data (in stub, this doesn't persist to backend)
-    const updatedUser = { ...user!, username: username.trim() };
-    setUser(updatedUser);
+    setIsSaving(true);
+    setError(null);
 
-    // Navigate to in-game overview
-    navigation.replace('InGameOverview');
+    try {
+      await authService.updateProfile({
+        username: username.trim(),
+        display_name: displayName.trim() || undefined,
+        bio: bio.trim() || undefined,
+      });
+      navigation.replace('InGameOverview');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save profile');
+      Alert.alert('Error', err.message || 'Failed to save profile');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -69,8 +87,12 @@ export default function PlayerAccountScreen({ navigation }: Props) {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await authService.signOut();
-            navigation.replace('Login');
+            try {
+              await authService.signOut();
+              navigation.replace('Login');
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to sign out');
+            }
           },
         },
       ]
@@ -80,6 +102,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -91,6 +114,15 @@ export default function PlayerAccountScreen({ navigation }: Props) {
         <Text style={styles.title}>Player Account</Text>
         <Text style={styles.subtitle}>Customize your profile</Text>
       </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={loadUserData}>
+            <Text style={styles.retryText}>Tap to retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.card}>
         <View style={styles.infoRow}>
@@ -108,7 +140,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
         <Text style={styles.sectionTitle}>Profile Settings</Text>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Username</Text>
+          <Text style={styles.inputLabel}>Username *</Text>
           <TextInput
             style={styles.input}
             placeholder="Enter your username"
@@ -116,6 +148,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
+            maxLength={30}
           />
         </View>
 
@@ -125,6 +158,9 @@ export default function PlayerAccountScreen({ navigation }: Props) {
             style={styles.input}
             placeholder="Enter display name (optional)"
             placeholderTextColor={colors.textSecondary}
+            value={displayName}
+            onChangeText={setDisplayName}
+            maxLength={50}
           />
         </View>
 
@@ -136,23 +172,27 @@ export default function PlayerAccountScreen({ navigation }: Props) {
             placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={4}
+            value={bio}
+            onChangeText={setBio}
+            maxLength={500}
           />
+          <Text style={styles.characterCount}>{bio.length}/500</Text>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-        <Text style={styles.continueButtonText}>Continue to Game</Text>
+      <TouchableOpacity
+        style={[styles.continueButton, isSaving && styles.buttonDisabled]}
+        onPress={handleContinue}
+        disabled={isSaving}
+      >
+        <Text style={styles.continueButtonText}>
+          {isSaving ? 'Saving...' : 'Continue to Game'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Text style={styles.signOutButtonText}>Sign Out</Text>
       </TouchableOpacity>
-
-      <View style={styles.note}>
-        <Text style={styles.noteText}>
-          Note: Profile changes will be saved when connected to Supabase
-        </Text>
-      </View>
     </ScrollView>
   );
 }
@@ -165,12 +205,14 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
   },
+  loader: {
+    marginTop: spacing.xxl,
+  },
   loadingText: {
-    flex: 1,
     textAlign: 'center',
-    textAlignVertical: 'center',
     fontSize: typography.md,
     color: colors.textSecondary,
+    marginTop: spacing.md,
   },
   header: {
     marginBottom: spacing.lg,
@@ -184,6 +226,25 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.md,
     color: colors.textSecondary,
+  },
+  errorContainer: {
+    backgroundColor: colors.error + '20',
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 12,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: typography.md,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  retryText: {
+    fontSize: typography.sm,
+    color: colors.primary,
+    marginTop: spacing.sm,
   },
   card: {
     backgroundColor: colors.card,
@@ -207,6 +268,9 @@ const styles = StyleSheet.create({
     fontSize: typography.md,
     color: colors.text,
     fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: spacing.md,
   },
   form: {
     marginBottom: spacing.lg,
@@ -238,6 +302,12 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  characterCount: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    textAlign: 'right',
+    marginTop: spacing.xs,
+  },
   continueButton: {
     backgroundColor: colors.primary,
     paddingVertical: spacing.md,
@@ -250,6 +320,9 @@ const styles = StyleSheet.create({
     fontSize: typography.md,
     fontWeight: 'bold',
     color: colors.text,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   signOutButton: {
     backgroundColor: 'transparent',
@@ -264,13 +337,5 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     fontSize: typography.md,
     color: colors.error,
-  },
-  note: {
-    alignItems: 'center',
-  },
-  noteText: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
 });
