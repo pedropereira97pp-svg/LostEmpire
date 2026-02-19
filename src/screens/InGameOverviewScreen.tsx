@@ -214,7 +214,7 @@ export default function InGameOverviewScreen({ navigation }: Props) {
 
       <View style={styles.note}>
         <Text style={styles.noteText}>
-          Demo Mode: Data is not persisted to server
+          Connected to Supabase
         </Text>
       </View>
     </ScrollView>
