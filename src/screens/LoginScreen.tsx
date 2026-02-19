@@ -23,6 +23,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 type RootStackParamList = {
   Login: undefined;
+  Signup: undefined;
   PlayerAccount: undefined;
 };
 
@@ -97,6 +98,10 @@ export default function LoginScreen({ navigation }: Props) {
     setSignUpSuccess(false);
     setShowPassword(false);
     setShowConfirmPassword(false);
+  };
+
+  const navigateToSignup = () => {
+    navigation.navigate('Signup');
   };
 
   const validateLoginForm = (): boolean => {
@@ -270,7 +275,7 @@ export default function LoginScreen({ navigation }: Props) {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'create' && styles.tabActive]}
-            onPress={() => switchTab('create')}
+            onPress={navigateToSignup}
           >
             <Text style={[styles.tabText, activeTab === 'create' && styles.tabTextActive]}>
               Create Account
