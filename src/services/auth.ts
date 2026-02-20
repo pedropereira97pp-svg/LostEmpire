@@ -1,4 +1,4 @@
-import { getSupabaseClient } from './supabaseClient';
+import { getSupabaseClient, supabaseConfig } from './supabaseClient';
 import { Session, AuthError } from '@supabase/supabase-js';
 import { recordFailedAttempt, resetAttempts, getRateLimitStatus, RateLimitStatus } from './authRateLimit';
 
@@ -290,18 +290,37 @@ class AuthService {
   }
 
   private async checkEmailExists(email: string): Promise<boolean> {
-    const { data, error } = await getSupabaseClient()
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle();
+    const supabaseUrl = supabaseConfig.url;
+    const anonKey = supabaseConfig.anonKey;
 
-    if (error) {
-      console.error('Error checking email existence:', error);
-      return false;
+    if (!supabaseUrl || !anonKey) {
+      throw new Error('Supabase configuration is missing. Please check your environment variables.');
     }
 
-    return data !== null;
+    const response = await fetch(`${supabaseUrl}/functions/v1/check-email-exists`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    let responseBody: { exists?: boolean; error?: string } | null = null;
+
+    try {
+      responseBody = await response.json();
+    } catch {
+      responseBody = null;
+    }
+
+    if (!response.ok) {
+      const errorMessage = responseBody?.error || 'Unable to verify email at this time.';
+      throw new Error(errorMessage);
+    }
+
+    return Boolean(responseBody?.exists);
   }
 
   private async setSession(session: Session | null): Promise<void> {
