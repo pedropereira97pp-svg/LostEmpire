@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
-import { authService, AuthNavigationService } from '../services';
+import { authService } from '../services';
 import { validateEmail, validatePasswordStrength, PASSWORD_RULES } from '../utils/validation';
 import type { RootStackScreenProps } from '../navigation';
 
@@ -179,7 +179,12 @@ export default function SignupScreen({ navigation }: Props) {
       await authService.setPassword(password);
       // Get current user and navigate to appropriate screen
       const user = await authService.getCurrentUser();
-      AuthNavigationService.navigateToAuthenticatedScreen(navigation, user);
+      // Navigate based on username - if user has username, go to game, else go to player account
+      if (user && user.username) {
+        navigation.replace('InGameOverview');
+      } else {
+        navigation.replace('PlayerAccount');
+      }
     } catch (error: any) {
       setFormError(error.message || 'Failed to set password. Please try again.');
     } finally {

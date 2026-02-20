@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
-import { authService, AuthNavigationService, UserProfile } from '../services';
+import { authService, UserProfile } from '../services';
 import type { RootStackScreenProps } from '../navigation';
 
 type Props = RootStackScreenProps<'PlayerAccount'>;
@@ -33,7 +33,8 @@ export default function PlayerAccountScreen({ navigation }: Props) {
       setError(null);
       const currentUser = await authService.getCurrentUser();
       if (!currentUser) {
-        AuthNavigationService.handleSignOut(navigation);
+        await authService.signOut();
+        navigation.replace('Login');
         return;
       }
       setUser(currentUser);
@@ -62,7 +63,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
         display_name: displayName.trim() || undefined,
         bio: bio.trim() || undefined,
       });
-      AuthNavigationService.goToGameOverview(navigation);
+      navigation.replace('InGameOverview');
     } catch (err: any) {
       setError(err.message || 'Failed to save profile');
       Alert.alert('Error', err.message || 'Failed to save profile');
@@ -82,7 +83,8 @@ export default function PlayerAccountScreen({ navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await AuthNavigationService.handleSignOut(navigation);
+              await authService.signOut();
+              navigation.replace('Login');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to sign out');
             }
@@ -125,7 +127,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
 
         <View style={styles.infoRow}>
           <Text style={styles.label}>Player ID</Text>
-          <Text style={styles.value}>{user?.id}</Text>
+          <Text style={styles.value}>#EMP-{user?.id.substring(0, 4).toUpperCase() || '0000'}</Text>
         </View>
       </View>
 

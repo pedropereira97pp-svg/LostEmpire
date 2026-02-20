@@ -37,12 +37,6 @@ class AuthService {
       throw new Error('No session returned after sign in');
     }
 
-    if (!data.session.user.email_confirmed_at) {
-      await getSupabaseClient().auth.signOut();
-      await recordFailedAttempt();
-      throw new Error('Please confirm your email address before signing in. Check your inbox for a confirmation link.');
-    }
-
     await resetAttempts();
     await this.setSession(data.session);
 
@@ -87,7 +81,7 @@ class AuthService {
       username: derivedUsername,
     };
 
-    if (data.session && data.session.user.email_confirmed_at) {
+    if (data.session) {
       await this.setSession(data.session);
       return { requiresConfirmation: false, user: this.currentUser || userProfile };
     }
