@@ -90,6 +90,11 @@ class AuthService {
   }
 
   async requestEmailOtp(email: string): Promise<void> {
+    const emailExists = await this.checkEmailExists(email.trim());
+    if (emailExists) {
+      throw new Error('An account with this email already exists. Please sign in instead.');
+    }
+
     const { error } = await getSupabaseClient().auth.signInWithOtp({
       email: email.trim(),
       options: {
@@ -282,6 +287,21 @@ class AuthService {
 
   getRateLimitStatus(): Promise<RateLimitStatus> {
     return getRateLimitStatus();
+  }
+
+  private async checkEmailExists(email: string): Promise<boolean> {
+    const { data, error } = await getSupabaseClient()
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking email existence:', error);
+      return false;
+    }
+
+    return data !== null;
   }
 
   private async setSession(session: Session | null): Promise<void> {
