@@ -13,21 +13,18 @@ import {
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as Constants from 'expo-constants';
 import { colors, spacing, typography } from '../theme';
-import { authService } from '../services/auth';
-import { getRateLimitStatus } from '../services/authRateLimit';
+import { authService, AuthNavigationService, getRateLimitStatus } from '../services';
 import { validateEmail, validatePasswordStrength, PASSWORD_RULES } from '../utils/validation';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackScreenProps } from '../navigation';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type RootStackParamList = {
-  Login: undefined;
-  Signup: undefined;
-  PlayerAccount: undefined;
-};
+// Detect if running in Expo Go
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+type Props = RootStackScreenProps<'Login'>;
 
 type Tab = 'login' | 'create';
 type ForgotState = 'idle' | 'sent';
@@ -178,8 +175,9 @@ export default function LoginScreen({ navigation }: Props) {
 
     setIsLoading(true);
     try {
-      await authService.signIn(email.trim(), password);
-      navigation.replace('PlayerAccount');
+      const user = await authService.signIn(email.trim(), password);
+      // Use centralized auth navigation - route based on username
+      AuthNavigationService.navigateToAuthenticatedScreen(navigation, user);
     } catch (error: any) {
       setFormError(error.message || 'Login failed. Please try again.');
       const newStatus = await getRateLimitStatus();
@@ -203,7 +201,8 @@ export default function LoginScreen({ navigation }: Props) {
       if (result.requiresConfirmation) {
         setSignUpSuccess(true);
       } else {
-        navigation.replace('PlayerAccount');
+        // Use centralized auth navigation - route based on username
+        AuthNavigationService.navigateToAuthenticatedScreen(navigation, result.user);
       }
     } catch (error: any) {
       setFormError(error.message || 'Sign up failed. Please try again.');
@@ -434,7 +433,7 @@ export default function LoginScreen({ navigation }: Props) {
                 )}
               </TouchableOpacity>
 
-              {activeTab === 'login' && (
+              {activeTab === 'login' && !isExpoGo && (
                 <>
                   <View style={styles.dividerRow}>
                     <View style={styles.dividerLine} />

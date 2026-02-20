@@ -7,16 +7,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
-import { authService } from '../services/auth';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { authService, AuthNavigationService, generatePlayerTag } from '../services';
+import type { RootStackScreenProps } from '../navigation';
 
-type RootStackParamList = {
-  Login: undefined;
-  PlayerAccount: undefined;
-  InGameOverview: undefined;
-};
-
-type Props = NativeStackScreenProps<RootStackParamList, 'InGameOverview'>;
+type Props = RootStackScreenProps<'InGameOverview'>;
 
 interface PlayerStats {
   level: number;
@@ -79,7 +73,7 @@ export default function InGameOverviewScreen({ navigation }: Props) {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
-        navigation.replace('Login');
+        AuthNavigationService.handleSignOut(navigation);
         return;
       }
       setUsername(user.username || 'Commander');
@@ -117,8 +111,7 @@ export default function InGameOverviewScreen({ navigation }: Props) {
   };
 
   const handleSignOut = async () => {
-    await authService.signOut();
-    navigation.replace('Login');
+    await AuthNavigationService.handleSignOut(navigation);
   };
 
   return (
@@ -128,6 +121,7 @@ export default function InGameOverviewScreen({ navigation }: Props) {
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.username}>{username}</Text>
+            <Text style={styles.playerTag}>{generatePlayerTag(username)}</Text>
           </View>
           <TouchableOpacity style={styles.avatar} onPress={handleSignOut}>
             <Text style={styles.avatarText}>👤</Text>
@@ -245,6 +239,12 @@ const styles = StyleSheet.create({
     fontSize: typography.xxl,
     fontWeight: 'bold',
     color: colors.text,
+  },
+  playerTag: {
+    fontSize: typography.sm,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: spacing.xs,
   },
   avatar: {
     width: 48,

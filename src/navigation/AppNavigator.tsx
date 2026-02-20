@@ -11,13 +11,9 @@ import InGameOverviewScreen from '../screens/InGameOverviewScreen';
 import SignupScreen from '../screens/SignupScreen';
 import { authService } from '../services/auth';
 import { colors } from '../theme';
+import type { RootStackParamList } from './types';
 
-export type RootStackParamList = {
-  Login: undefined;
-  Signup: undefined;
-  PlayerAccount: undefined;
-  InGameOverview: undefined;
-};
+export { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
