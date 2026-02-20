@@ -10,16 +10,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
-import { authService, UserProfile } from '../services/auth';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { authService, AuthNavigationService, UserProfile } from '../services';
+import type { RootStackScreenProps } from '../navigation';
 
-type RootStackParamList = {
-  Login: undefined;
-  PlayerAccount: undefined;
-  InGameOverview: undefined;
-};
-
-type Props = NativeStackScreenProps<RootStackParamList, 'PlayerAccount'>;
+type Props = RootStackScreenProps<'PlayerAccount'>;
 
 export default function PlayerAccountScreen({ navigation }: Props) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -39,7 +33,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
       setError(null);
       const currentUser = await authService.getCurrentUser();
       if (!currentUser) {
-        navigation.replace('Login');
+        AuthNavigationService.handleSignOut(navigation);
         return;
       }
       setUser(currentUser);
@@ -68,7 +62,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
         display_name: displayName.trim() || undefined,
         bio: bio.trim() || undefined,
       });
-      navigation.replace('InGameOverview');
+      AuthNavigationService.goToGameOverview(navigation);
     } catch (err: any) {
       setError(err.message || 'Failed to save profile');
       Alert.alert('Error', err.message || 'Failed to save profile');
@@ -88,8 +82,7 @@ export default function PlayerAccountScreen({ navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await authService.signOut();
-              navigation.replace('Login');
+              await AuthNavigationService.handleSignOut(navigation);
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to sign out');
             }

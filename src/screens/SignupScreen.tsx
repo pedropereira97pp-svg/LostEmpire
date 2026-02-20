@@ -11,17 +11,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
-import { authService } from '../services/auth';
+import { authService, AuthNavigationService } from '../services';
 import { validateEmail, validatePasswordStrength, PASSWORD_RULES } from '../utils/validation';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackScreenProps } from '../navigation';
 
-type RootStackParamList = {
-  Login: undefined;
-  Signup: undefined;
-  PlayerAccount: undefined;
-};
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
+type Props = RootStackScreenProps<'Signup'>;
 
 type SignupStep = 'email' | 'otp' | 'password';
 
@@ -183,7 +177,9 @@ export default function SignupScreen({ navigation }: Props) {
     setIsLoading(true);
     try {
       await authService.setPassword(password);
-      navigation.replace('PlayerAccount');
+      // Get current user and navigate to appropriate screen
+      const user = await authService.getCurrentUser();
+      AuthNavigationService.navigateToAuthenticatedScreen(navigation, user);
     } catch (error: any) {
       setFormError(error.message || 'Failed to set password. Please try again.');
     } finally {
