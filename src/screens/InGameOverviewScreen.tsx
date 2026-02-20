@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
-import { authService, AuthNavigationService, generatePlayerTag } from '../services';
+import { authService } from '../services';
 import type { RootStackScreenProps } from '../navigation';
 
 type Props = RootStackScreenProps<'InGameOverview'>;
@@ -73,7 +73,8 @@ export default function InGameOverviewScreen({ navigation }: Props) {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
-        AuthNavigationService.handleSignOut(navigation);
+        await authService.signOut();
+        navigation.replace('Login');
         return;
       }
       setUsername(user.username || 'Commander');
@@ -110,8 +111,23 @@ export default function InGameOverviewScreen({ navigation }: Props) {
     }
   };
 
+  const getPlayerTag = (username?: string): string => {
+    if (!username) {
+      return 'Guest';
+    }
+
+    // If username is already short enough, use it as-is
+    if (username.length <= 8) {
+      return username;
+    }
+
+    // Otherwise, truncate and add indicator
+    return `${username.substring(0, 8)}...`;
+  };
+
   const handleSignOut = async () => {
-    await AuthNavigationService.handleSignOut(navigation);
+    await authService.signOut();
+    navigation.replace('Login');
   };
 
   return (
@@ -121,7 +137,7 @@ export default function InGameOverviewScreen({ navigation }: Props) {
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.username}>{username}</Text>
-            <Text style={styles.playerTag}>{generatePlayerTag(username)}</Text>
+            <Text style={styles.playerTag}>{getPlayerTag(username)}</Text>
           </View>
           <TouchableOpacity style={styles.avatar} onPress={handleSignOut}>
             <Text style={styles.avatarText}>👤</Text>

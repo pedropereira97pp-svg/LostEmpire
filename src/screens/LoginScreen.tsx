@@ -15,14 +15,14 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as Constants from 'expo-constants';
 import { colors, spacing, typography } from '../theme';
-import { authService, AuthNavigationService, getRateLimitStatus } from '../services';
+import { authService, getRateLimitStatus } from '../services';
 import { validateEmail, validatePasswordStrength, PASSWORD_RULES } from '../utils/validation';
 import type { RootStackScreenProps } from '../navigation';
 
 WebBrowser.maybeCompleteAuthSession();
 
 // Detect if running in Expo Go
-const isExpoGo = Constants.executionEnvironment === 'storeClient';
+const isExpoGo = Constants.appOwnership === 'expo';
 
 type Props = RootStackScreenProps<'Login'>;
 
@@ -176,8 +176,12 @@ export default function LoginScreen({ navigation }: Props) {
     setIsLoading(true);
     try {
       const user = await authService.signIn(email.trim(), password);
-      // Use centralized auth navigation - route based on username
-      AuthNavigationService.navigateToAuthenticatedScreen(navigation, user);
+      // Navigate based on username - if user has username, go to game, else go to player account
+      if (user.username) {
+        navigation.replace('InGameOverview');
+      } else {
+        navigation.replace('PlayerAccount');
+      }
     } catch (error: any) {
       setFormError(error.message || 'Login failed. Please try again.');
       const newStatus = await getRateLimitStatus();
@@ -201,8 +205,12 @@ export default function LoginScreen({ navigation }: Props) {
       if (result.requiresConfirmation) {
         setSignUpSuccess(true);
       } else {
-        // Use centralized auth navigation - route based on username
-        AuthNavigationService.navigateToAuthenticatedScreen(navigation, result.user);
+        // Navigate based on username - if user has username, go to game, else go to player account
+        if (result.user.username) {
+          navigation.replace('InGameOverview');
+        } else {
+          navigation.replace('PlayerAccount');
+        }
       }
     } catch (error: any) {
       setFormError(error.message || 'Sign up failed. Please try again.');
