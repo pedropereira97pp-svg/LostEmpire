@@ -94,7 +94,6 @@ class AuthService {
       email: email.trim(),
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: undefined, // We'll handle verification manually
       },
     });
 
