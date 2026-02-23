@@ -61,20 +61,81 @@ Deno.serve(async (req) => {
     },
   });
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
+  // Step 1 — Check if email exists in auth.users at all.
+  // We use listUsers() with service role so RLS does not block us.
+  const { data: usersData, error: usersError } =
+    await supabase.auth.admin.listUsers();
 
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  if (usersError) {
+    return new Response(JSON.stringify({ error: usersError.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  return new Response(JSON.stringify({ exists: data !== null }), {
+  // Case-insensitive match so Pedro@ and pedro@ are treated the same.
+  const authUser = usersData.users.find(
+    (user) => user.email?.toLowerCase() === email.toLowerCase()
+  );
+
+  // Email not in auth.users at all — safe to proceed with signup.
+  if (!authUser) {
+    return new Response(JSON.stringify({ exists: false }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Step 2 — Email exists in auth.users.
+  // Now check if they have a completed profile row.
+  // A profile row means they finished the full signup flow.
+  // No profile row means they are a ghost account
+  // (entered email, never completed OTP + password steps).
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (profileError) {
+    return new Response(JSON.stringify({ error: profileError.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (profile) {
+    // Has a profile = real completed account.
+    // Block this email from being used again.
+    return new Response(JSON.stringify({ exists: true }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // No profile = ghost account (abandoned signup).
+  // Delete the ghost so the email is freed up for a fresh attempt.
+  const { error: deleteError } = await supabase.auth.admin.deleteUser(
+    authUser.id
+  );
+
+  if (deleteError) {
+    // If delete fails, block signup anyway to be safe.
+    // Better to show an error than to create a duplicate.
+    return new Response(
+      JSON.stringify({
+        error: "Unable to process request. Please try again.",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  // Ghost deleted successfully — email is now free.
+  // Return exists: false so signup can proceed normally.
+  return new Response(JSON.stringify({ exists: false }), {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
