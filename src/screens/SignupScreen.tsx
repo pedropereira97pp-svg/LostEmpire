@@ -183,6 +183,7 @@ export default function SignupScreen({ navigation }: Props) {
       if (user && user.username) {
         navigation.replace('InGameOverview');
       } else {
+        generateDefaultUsername();
         navigation.replace('PlayerAccount');
       }
     } catch (error: any) {
@@ -201,6 +202,11 @@ export default function SignupScreen({ navigation }: Props) {
 
   const handleBackToLogin = () => {
     navigation.goBack();
+  };
+
+  const generateDefaultUsername = (): string => {
+    const randomDigits = Math.floor(100000000 + Math.random() * 900000000);
+    return `Emperor${randomDigits}`;
   };
 
   const renderStepIndicator = () => {
