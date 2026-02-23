@@ -12,12 +12,18 @@ import {
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { authService } from '../services';
+import supabase from '../services/supabaseClient';
 import { validateEmail, validatePasswordStrength, PASSWORD_RULES } from '../utils/validation';
 import type { RootStackScreenProps } from '../navigation';
 
 type Props = RootStackScreenProps<'Signup'>;
 
 type SignupStep = 'email' | 'otp' | 'password';
+
+const generateDefaultUsername = (email: string): string => {
+  const emailPrefix = email.split('@')[0];
+  return emailPrefix.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+};
 
 export default function SignupScreen({ navigation }: Props) {
   const [currentStep, setCurrentStep] = useState<SignupStep>('email');
@@ -177,14 +183,26 @@ export default function SignupScreen({ navigation }: Props) {
     setIsLoading(true);
     try {
       await authService.setPassword(password);
-      // Get current user and navigate to appropriate screen
+      // Get current user
       const user = await authService.getCurrentUser();
-      // Navigate based on username - if user has username, go to game, else go to player account
-      if (user && user.username) {
-        navigation.replace('InGameOverview');
-      } else {
-        navigation.replace('PlayerAccount');
+      
+      if (!user) {
+        throw new Error('Failed to get user information');
       }
+
+      // Generate default username and assign home planet
+      const defaultUsername = generateDefaultUsername(email);
+      const { error: rpcError } = await supabase.rpc('assign_home_planet', {
+        p_user_id: user.id,
+        p_username: defaultUsername
+      });
+
+      if (rpcError) {
+        throw new Error(rpcError.message || 'Failed to assign home planet');
+      }
+
+      // Navigate to InGameOverview on success
+      navigation.replace('InGameOverview');
     } catch (error: any) {
       setFormError(error.message || 'Failed to set password. Please try again.');
     } finally {
